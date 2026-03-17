@@ -241,6 +241,11 @@
     return { name: elementName, elementName, path };
   }
 
+  /** Get current scroll position, handling both body-scroll and window-scroll pages. */
+  function currentScrollY(): number {
+    return document.body.scrollTop || window.scrollY || document.documentElement.scrollTop;
+  }
+
   function deepElementFromPoint(x: number, y: number): HTMLElement | null {
     let element = document.elementFromPoint(x, y) as HTMLElement | null;
     if (!element) return null;
@@ -564,13 +569,13 @@
       const fixed = isElementFixed(firstEl);
       pendingAnnotation = {
         x: (rect.left / window.innerWidth) * 100,
-        y: fixed ? rect.top : rect.top + window.scrollY,
+        y: fixed ? rect.top : rect.top + currentScrollY(),
         clientY: rect.top,
         element: firstItem.name,
         elementPath: firstItem.path,
         boundingBox: {
           x: rect.left,
-          y: fixed ? rect.top : rect.top + window.scrollY,
+          y: fixed ? rect.top : rect.top + currentScrollY(),
           width: rect.width,
           height: rect.height,
         },
@@ -596,7 +601,7 @@
         : '';
       const elementBoundingBoxes = freshRects.map((rect) => ({
         x: rect.left,
-        y: rect.top + window.scrollY,
+        y: rect.top + currentScrollY(),
         width: rect.width,
         height: rect.height,
       }));
@@ -608,13 +613,13 @@
       const lastIsFixed = isElementFixed(lastEl);
       pendingAnnotation = {
         x: (lastCenterX / window.innerWidth) * 100,
-        y: lastIsFixed ? lastCenterY : lastCenterY + window.scrollY,
+        y: lastIsFixed ? lastCenterY : lastCenterY + currentScrollY(),
         clientY: lastCenterY,
         element: `${pendingMultiSelectElements.length} elements: ${names}${suffix}`,
         elementPath: 'multi-select',
         boundingBox: {
           x: bounds.left,
-          y: bounds.top + window.scrollY,
+          y: bounds.top + currentScrollY(),
           width: bounds.right - bounds.left,
           height: bounds.bottom - bounds.top,
         },
@@ -790,7 +795,7 @@
       const elements: HTMLElement[] = [];
       for (const bb of annotation.elementBoundingBoxes) {
         const centerX = bb.x + bb.width / 2;
-        const centerY = bb.y + bb.height / 2 - window.scrollY;
+        const centerY = bb.y + bb.height / 2 - currentScrollY();
         const el = deepElementFromPoint(centerX, centerY);
         if (el) elements.push(el);
       }
@@ -801,7 +806,7 @@
       const centerX = bb.x + bb.width / 2;
       const centerY = annotation.isFixed
         ? bb.y + bb.height / 2
-        : bb.y + bb.height / 2 - window.scrollY;
+        : bb.y + bb.height / 2 - currentScrollY();
       const el = deepElementFromPoint(centerX, centerY);
       if (el) {
         const elRect = el.getBoundingClientRect();
@@ -831,7 +836,7 @@
       const elements: HTMLElement[] = [];
       for (const bb of annotation.elementBoundingBoxes) {
         const centerX = bb.x + bb.width / 2;
-        const centerY = bb.y + bb.height / 2 - window.scrollY;
+        const centerY = bb.y + bb.height / 2 - currentScrollY();
         const allEls = document.elementsFromPoint(centerX, centerY);
         const el = allEls.find(
           (e) => !e.closest('[data-annotation-marker]') && !e.closest('[data-agentation-root]'),
@@ -845,7 +850,7 @@
       const centerX = bb.x + bb.width / 2;
       const centerY = annotation.isFixed
         ? bb.y + bb.height / 2
-        : bb.y + bb.height / 2 - window.scrollY;
+        : bb.y + bb.height / 2 - currentScrollY();
       const el = deepElementFromPoint(centerX, centerY);
       if (el) {
         const elRect = el.getBoundingClientRect();
@@ -1041,7 +1046,7 @@
     isToolbarHidden = loadToolbarHidden();
 
     mounted = true;
-    scrollY = window.scrollY;
+    scrollY = currentScrollY();
     const stored = loadAnnotations<Annotation>(pathname);
     annotations = stored.filter(isRenderableAnnotation);
 
@@ -1075,9 +1080,12 @@
     const events = ['mousedown', 'click', 'pointerdown'] as const;
     events.forEach((evt) => document.body.addEventListener(evt, stop));
 
-    // Scroll tracking
+    // Scroll tracking — detect whether body or window is the scroll container.
+    // Sites with `html, body { height: 100%; overflow-y: auto }` scroll on body,
+    // making currentScrollY() always 0. We listen on both and read whichever has a value.
+    const getScrollY = () => currentScrollY();
     const handleScroll = () => {
-      scrollY = window.scrollY;
+      scrollY = getScrollY();
       isScrolling = true;
       if (scrollTimeoutRef) clearTimeout(scrollTimeoutRef);
       scrollTimeoutRef = originalSetTimeout(() => {
@@ -1085,10 +1093,12 @@
       }, 150);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
+    document.body.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       events.forEach((evt) => document.body.removeEventListener(evt, stop));
       window.removeEventListener('scroll', handleScroll);
+      document.body.removeEventListener('scroll', handleScroll);
       if (scrollTimeoutRef) clearTimeout(scrollTimeoutRef);
       if (tooltipSessionTimerRef) clearTimeout(tooltipSessionTimerRef);
       unfreezeAll();
@@ -1400,7 +1410,7 @@
           const newAnnotation: Annotation = {
             id: `demo-${Date.now()}-${index}`,
             x: ((rect.left + rect.width / 2) / window.innerWidth) * 100,
-            y: rect.top + rect.height / 2 + window.scrollY,
+            y: rect.top + rect.height / 2 + currentScrollY(),
             comment: demo.comment,
             element: name,
             elementPath: path,
@@ -1408,7 +1418,7 @@
             selectedText: demo.selectedText,
             boundingBox: {
               x: rect.left,
-              y: rect.top + window.scrollY,
+              y: rect.top + currentScrollY(),
               width: rect.width,
               height: rect.height,
             },
@@ -1570,7 +1580,7 @@
       const rect = elementUnder.getBoundingClientRect();
       const x = (e.clientX / window.innerWidth) * 100;
       const fixed = isElementFixed(elementUnder);
-      const y = fixed ? e.clientY : e.clientY + window.scrollY;
+      const y = fixed ? e.clientY : e.clientY + currentScrollY();
       const selection = window.getSelection();
       let selectedText: string | undefined;
       if (selection && selection.toString().trim().length > 0) {
@@ -1586,7 +1596,7 @@
         selectedText,
         boundingBox: {
           x: rect.left,
-          y: fixed ? rect.top : rect.top + window.scrollY,
+          y: fixed ? rect.top : rect.top + currentScrollY(),
           width: rect.width,
           height: rect.height,
         },
@@ -1821,7 +1831,7 @@
             !allMatching.some(({ element: other }) => other !== el && el.contains(other)),
         );
         const x = (e.clientX / window.innerWidth) * 100;
-        const y = e.clientY + window.scrollY;
+        const y = e.clientY + currentScrollY();
         if (finalElements.length > 0) {
           const bounds = finalElements.reduce(
             (acc, { rect }) => ({
@@ -1842,7 +1852,7 @@
             elementPath: 'multi-select',
             boundingBox: {
               x: bounds.left,
-              y: bounds.top + window.scrollY,
+              y: bounds.top + currentScrollY(),
               width: bounds.right - bounds.left,
               height: bounds.bottom - bounds.top,
             },
@@ -1864,7 +1874,7 @@
               clientY: e.clientY,
               element: 'Area selection',
               elementPath: `region at (${Math.round(left)}, ${Math.round(top)})`,
-              boundingBox: { x: left, y: top + window.scrollY, width, height },
+              boundingBox: { x: left, y: top + currentScrollY(), width, height },
               isMultiSelect: true,
             };
           }
@@ -2236,7 +2246,7 @@
           <div
             class="marker {isMulti ? 'multiSelect' : ''} {animClass} {showDeleteHover ? 'hovered' : ''}"
             data-annotation-marker
-            style="left: {annotation.x}%; top: {annotation.y}px; {showDeleteHover ? '' : `background-color: ${markerColor};`} animation-delay: {markersExiting ? `${(visibleAnnotations.filter((a) => !a.isFixed).length - 1 - index) * 20}ms` : `${index * 20}ms`};"
+            style="left: {annotation.x}%; top: {annotation.y - scrollY}px; {showDeleteHover ? '' : `background-color: ${markerColor};`} animation-delay: {markersExiting ? `${(visibleAnnotations.filter((a) => !a.isFixed).length - 1 - index) * 20}ms` : `${index * 20}ms`};"
             onmouseenter={() => { if (!markersExiting && annotation.id !== recentlyAddedIdRef) handleMarkerHover(annotation); }}
             onmouseleave={() => handleMarkerHover(null)}
             onclick={(e: MouseEvent) => { e.stopPropagation(); if (!markersExiting) { if (settings.markerClickBehavior === 'delete') deleteAnnotation(annotation.id); else startEditAnnotation(annotation); } }}
@@ -2258,7 +2268,7 @@
         {#if !markersExiting}
           {#each exitingAnnotationsList.filter((a) => !a.isFixed) as annotation (annotation.id)}
             {@const isMulti = annotation.isMultiSelect}
-            <div class="marker hovered {isMulti ? 'multiSelect' : ''} exit" data-annotation-marker style="left: {annotation.x}%; top: {annotation.y}px;">
+            <div class="marker hovered {isMulti ? 'multiSelect' : ''} exit" data-annotation-marker style="left: {annotation.x}%; top: {annotation.y - scrollY}px;">
               <IconXmark size={isMulti ? 12 : 10} />
             </div>
           {/each}
@@ -2385,7 +2395,16 @@
             isExiting={pendingExiting}
             lightMode={!isDarkMode}
             accentColor={pendingAnnotation.isMultiSelect ? 'var(--agentation-color-green)' : 'var(--agentation-color-accent)'}
-            style="left: {Math.max(160, Math.min(window.innerWidth - 160, (markerX / 100) * window.innerWidth))}px; {markerY > window.innerHeight - 290 ? `bottom: ${window.innerHeight - markerY + 20}px;` : `top: ${markerY + 20}px;`}"
+            style={(() => {
+              const popupLeft = Math.max(160, Math.min(window.innerWidth - 160, (markerX / 100) * window.innerWidth));
+              const pos: Record<string, string> = { left: `${popupLeft}px` };
+              if (markerY > window.innerHeight - 290) {
+                pos.bottom = `${window.innerHeight - markerY + 20}px`;
+              } else {
+                pos.top = `${markerY + 20}px`;
+              }
+              return pos;
+            })()}
           />
         {/if}
 
@@ -2424,7 +2443,16 @@
             isExiting={editExiting}
             lightMode={!isDarkMode}
             accentColor={editingAnnotation.isMultiSelect ? 'var(--agentation-color-green)' : 'var(--agentation-color-accent)'}
-            style="left: {Math.max(160, Math.min(window.innerWidth - 160, (editingAnnotation.x / 100) * window.innerWidth))}px; {editMarkerY > window.innerHeight - 290 ? `bottom: ${window.innerHeight - editMarkerY + 20}px;` : `top: ${editMarkerY + 20}px;`}"
+            style={(() => {
+              const popupLeft = Math.max(160, Math.min(window.innerWidth - 160, (editingAnnotation.x / 100) * window.innerWidth));
+              const pos: Record<string, string> = { left: `${popupLeft}px` };
+              if (editMarkerY > window.innerHeight - 290) {
+                pos.bottom = `${window.innerHeight - editMarkerY + 20}px`;
+              } else {
+                pos.top = `${editMarkerY + 20}px`;
+              }
+              return pos;
+            })()}
           />
         {/if}
 
@@ -2525,7 +2553,8 @@
   .buttonWrapperAlignRight:hover .buttonTooltip { transform: translateX(calc(-100% + 12px)) scale(1); }
   .divider { width: 1px; height: 12px; background: rgba(255,255,255,0.15); margin: 0 0.125rem; }
   .overlay { position: fixed; inset: 0; z-index: 99997; pointer-events: none; }
-  .overlay > :global(*) { pointer-events: auto; }
+  .overlay :global([data-annotation-popup]) { pointer-events: auto; }
+  .overlay .marker.pending { pointer-events: auto; }
   .hoverHighlight { position: fixed; border: 2px solid color-mix(in srgb, var(--agentation-color-accent) 50%, transparent); border-radius: 4px; background-color: color-mix(in srgb, var(--agentation-color-accent) 4%, transparent); pointer-events: none !important; box-sizing: border-box; will-change: opacity; contain: layout style; }
   .hoverHighlight.enter { animation: hoverHighlightIn 0.12s ease-out forwards; }
   .multiSelectOutline { position: fixed; border: 2px dashed color-mix(in srgb, var(--agentation-color-green) 60%, transparent); border-radius: 4px; pointer-events: none !important; background-color: color-mix(in srgb, var(--agentation-color-green) 5%, transparent); box-sizing: border-box; will-change: opacity; }
@@ -2537,7 +2566,7 @@
   .hoverTooltip { position: fixed; font-size: 0.6875rem; font-weight: 500; color: #fff; background: rgba(0,0,0,0.85); padding: 0.35rem 0.6rem; border-radius: 0.375rem; pointer-events: none !important; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   .hoverTooltip.enter { animation: hoverTooltipIn 0.1s ease-out forwards; }
   .hoverElementName { overflow: hidden; text-overflow: ellipsis; }
-  .markersLayer { position: absolute; top: 0; left: 0; right: 0; height: 0; z-index: 99998; pointer-events: none; }
+  .markersLayer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99998; pointer-events: none; }
   .markersLayer > :global(*) { pointer-events: auto; }
   .fixedMarkersLayer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99998; pointer-events: none; }
   .fixedMarkersLayer > :global(*) { pointer-events: auto; }

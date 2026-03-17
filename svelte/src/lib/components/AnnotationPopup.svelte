@@ -494,6 +494,7 @@
 
   .textarea {
     width: 100%;
+    box-sizing: border-box;
     padding: 0.5rem 0.625rem;
     font-size: 0.8125rem;
     font-family: inherit;
