@@ -484,10 +484,8 @@
   let canvasOpacity = $state(0.15);
   let wireframePurpose = $state('');
   let designPlacements = $state<DesignPlacement[]>([]);
-  let wireframePlacements = $state<DesignPlacement[]>([]);
   let activeDesignComponent = $state<ComponentType | null>(null);
   let rearrangeState = $state<RearrangeState | null>(null);
-  let wireframeRearrangeState = $state<RearrangeState | null>(null);
   let selectedPlacementId = $state<string | null>(null);
   let selectedSectionId = $state<string | null>(null);
   let hoveredSectionId = $state<string | null>(null);
@@ -2254,9 +2252,15 @@
         }
         if (pendingAnnotation) {
           // Let popup handle
+        } else if (isLayoutMode && activeDesignComponent) {
+          // Cancel active component selection without closing layout mode
+          activeDesignComponent = null;
+        } else if (isLayoutMode) {
+          // Close layout mode without closing the toolbar
+          closeLayoutMode();
         } else if (isActive) {
           hideTooltipsUntilMouseLeave();
-          isActive = false; if (isLayoutMode) closeLayoutMode();
+          isActive = false;
         }
       }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
@@ -2301,19 +2305,9 @@
           toggleLayoutMode();
         }
       }
-      if (isLayoutMode) {
-        if (e.key === 'Escape') {
-          if (activeDesignComponent) {
-            activeDesignComponent = null;
-          } else {
-            closeLayoutMode();
-          }
-          e.stopPropagation();
-        }
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          if (selectedPlacementId) {
-            deletePlacement(selectedPlacementId);
-          }
+      if (isLayoutMode && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (selectedPlacementId) {
+          deletePlacement(selectedPlacementId);
         }
       }
     };
@@ -2434,7 +2428,7 @@
           <div class="divider"></div>
 
           <div class="buttonWrapper {toolbarPosition && typeof window !== 'undefined' && toolbarPosition.x > window.innerWidth - 120 ? 'buttonWrapperAlignRight' : ''}">
-            <button class="controlButton" onclick={(e: MouseEvent) => { e.stopPropagation(); hideTooltipsUntilMouseLeave(); isActive = false; }}>
+            <button class="controlButton" onclick={(e: MouseEvent) => { e.stopPropagation(); hideTooltipsUntilMouseLeave(); if (isLayoutMode) closeLayoutMode(); isActive = false; }}>
               <IconXmarkLarge size={24} />
             </button>
             <span class="buttonTooltip">Exit<span class="shortcut">Esc</span></span>
@@ -3002,7 +2996,7 @@
   .toolbarContainer.collapsed :global(svg) { margin-top: -1px; }
   .toolbarContainer.collapsed:hover { background: #2a2a2a; }
   .toolbarContainer.collapsed:active { transform: scale(0.95); }
-  .toolbarContainer.expanded { height: 44px; border-radius: 1.5rem; padding: 0.375rem; width: 337px; }
+  .toolbarContainer.expanded { height: 44px; border-radius: 1.5rem; padding: 0.375rem; width: 297px; }
   .toolbarContainer.expanded.serverConnected { width: 337px; }
   .toggleContent { position: absolute; display: flex; align-items: center; justify-content: center; transition: opacity 0.1s cubic-bezier(0.19,1,0.22,1); }
   .toggleContent.visible { opacity: 1; visibility: visible; pointer-events: auto; }
