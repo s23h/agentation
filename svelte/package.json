@@ -1,0 +1,30 @@
+{
+  "name": "agentation-svelte",
+  "version": "0.1.0",
+  "description": "Visual feedback for AI coding agents - Svelte port",
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "svelte-package",
+    "dev": "svelte-package --watch",
+    "prepublishOnly": "pnpm build"
+  },
+  "peerDependencies": {
+    "svelte": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/package": "^2.0.0",
+    "svelte": "^5.0.0",
+    "typescript": "^5.0.0"
+  },
+  "license": "PolyForm-Shield-1.0.0"
+}
